@@ -9,9 +9,9 @@ int in_black_list(struct rte_mbuf *m)
     struct rte_ipv4_hdr *ipv4;
     uint32_t src_ip, dst_ip;
 
-    // Define the Target Subnet (192.168.1.0) and Mask (/28 = 255.255.255.240)
+    // Define the Target Subnet (192.168.1.0) and Mask (/28 = 255.255.255.0)
     uint32_t target_subnet = RTE_IPV4(192, 168, 1, 0);
-    uint32_t subnet_mask   = RTE_IPV4(255, 255, 255, 240);
+    uint32_t subnet_mask   = RTE_IPV4(255, 255, 255, 0);
 
     eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
 
