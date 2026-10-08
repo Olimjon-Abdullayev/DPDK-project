@@ -692,7 +692,7 @@ main(int argc, char **argv)
     /* >8 End of init EAL. */
 
     printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
-	load_blacklist("blacklist.txt");
+	
 
     /* convert to number of cycles */
     timer_period *= rte_get_timer_hz();
