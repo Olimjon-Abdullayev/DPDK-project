@@ -190,7 +190,7 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 	if (mac_updating)
 		l2fwd_mac_updating(m, dst_port);
 
-	if (dst_port==1 && in_black_list(m)==1){
+	if (in_black_list(m) == 1) {
 		port_statistics[portid].dropped++;
 		rte_pktmbuf_free(m); 
 		return;
