@@ -1,36 +1,56 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
 #include <rte_ether.h>
 #include <rte_ip.h>
-#include <rte_tcp.h>
 #include <rte_byteorder.h>
-#include <netinet/in.h>
 #include "filter.h"
 
-int in_black_list(struct rte_mbuf *m)
-{
-    struct rte_ether_hdr *eth;
-    struct rte_ipv4_hdr *ipv4;
-    struct rte_tcp_hdr *tcp;
+#define MAX_IPS 100
+uint32_t blacklisted_ips[MAX_IPS];
+int num_ips = 0;
 
-    eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
+void load_blacklist(const char *filename) {
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL) {
+        printf("Notice: No %s found. Blacklist is empty.\n", filename);
+        return;
+    }
 
-    // 1. Check if the packet is IPv4
-    if (rte_be_to_cpu_16(eth->ether_type) == RTE_ETHER_TYPE_IPV4) {
-        
-        ipv4 = (struct rte_ipv4_hdr *)(eth + 1);
-
-        // 2. Check if the protocol is TCP
-        if (ipv4->next_proto_id == IPPROTO_TCP) {
-            
-            // 3. The TCP header is located right after the IPv4 header
-            tcp = (struct rte_tcp_hdr *)(ipv4 + 1);
-
-            // 4. Task 6: Block if the destination port is 80 (HTTP)
-            if (rte_be_to_cpu_16(tcp->dst_port) == 80) {
-                return 1; // Drop the HTTP packet
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        line[strcspn(line, "\r\n")] = 0; // Remove newlines
+        if (strlen(line) > 0) {
+            struct in_addr addr;
+            if (inet_pton(AF_INET, line, &addr) == 1) {
+                blacklisted_ips[num_ips] = rte_be_to_cpu_32(addr.s_addr);
+                printf("Loaded blocked IP from file: %s\n", line);
+                num_ips++;
             }
         }
     }
+    fclose(fp);
+}
 
-    // Return 0 to allow everything else (like ping, UDP, or other TCP ports)
+int in_black_list(struct rte_mbuf *m) {
+    struct rte_ether_hdr *eth;
+    struct rte_ipv4_hdr *ipv4;
+    uint32_t src_ip, dst_ip;
+
+    eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
+
+    if (rte_be_to_cpu_16(eth->ether_type) == RTE_ETHER_TYPE_IPV4) {
+        ipv4 = (struct rte_ipv4_hdr *)(eth + 1);
+        src_ip = rte_be_to_cpu_32(ipv4->src_addr);
+        dst_ip = rte_be_to_cpu_32(ipv4->dst_addr);
+
+        // Loop through all IPs loaded from the text file
+        for (int i = 0; i < num_ips; i++) {
+            if (src_ip == blacklisted_ips[i] || dst_ip == blacklisted_ips[i]) {
+                return 1; 
+            }
+        }
+    }
     return 0; 
 }
